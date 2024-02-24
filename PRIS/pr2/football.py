@@ -2,6 +2,12 @@ import sys, pygame
 import numpy as np
 import math
 
+pygame.font.init()
+font = pygame.font.SysFont('Comic Sans MS', 20)
+def drawText(screen, s, x, y):
+    surf=font.render(s, True, (0,0,0))
+    screen.blit(surf, (x,y))
+
 sz = (800, 600)
 
 def rot(v, ang): #функция для поворота на угол
@@ -10,7 +16,6 @@ def rot(v, ang): #функция для поворота на угол
 
 def rotArr(vv, ang): # функция для поворота массива на угол
     return [rot(v, ang) for v in vv]
-
 
 def dist(p1, p2):
     return np.linalg.norm(np.subtract(p1, p2))
@@ -108,10 +113,29 @@ class Ball:
         self.x += self.vx * dt
         self.y += self.vy * dt
 
+class Area:
+    def __init__(self, p0, W, L):
+        self.p0 = p0
+        self.W = W
+        self.L = L
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, (0, 170, 0), (*self.p0, self.L, self.W), 2)
+        p1 = (self.p0[0] + self.L / 2, self.p0[1])
+        p2 = (p1[0], p1[1] + self.W)
+        pygame.draw.line(screen, (0, 170, 0), p1, p2, 2)
+    def isPtOutside(self, pt):
+        return (pt[0] < self.p0[0] or
+                pt[1] < self.p0[1] or
+                pt[0] > self.p0[0] + self.L or
+                pt[1] > self.p0[1] + self.W)
+
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
-    fps = 20
+    fps = 30
+
+    a = Area((25, 25), sz[1]-50, sz[0]-50)
 
     r = Robot(350, 350, 1, 45, 60)
     r.vx = 50
@@ -139,6 +163,10 @@ def main():
         r.draw(screen)
         r2.draw(screen)
         b.draw(screen)
+        a.draw(screen)
+
+        drawText(screen, f"inside = {a.isPtOutside(b.getPos())}", 5, 5)
+
         pygame.display.flip()
         timer.tick(fps)
 
