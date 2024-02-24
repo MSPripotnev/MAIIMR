@@ -130,27 +130,39 @@ class Area:
                 pt[0] > self.p0[0] + self.L or
                 pt[1] > self.p0[1] + self.W)
 
+    def getGlobalPt(self, ptLocal): #точка относительно центра поля
+        pc = np.add(self.p0, (self.L / 2, self.W / 2))
+        return np.add(pc, ptLocal)
+
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
     fps = 30
+    b, r, r2 = None, None, None
 
     a = Area((25, 25), sz[1]-50, sz[0]-50)
-
-    r = Robot(350, 350, 1, 45, 60)
-    r.vx = 50
-    r.wAng = -1
-    r2 = Robot(200, 350, 2, 45, 60)
-    r2.vx = 50
-    r2.wAng = 1
-    b = Ball(200,200,70)
-    b.vx = 30
-    b.vy = 20
+    def initScene():
+        nonlocal r, r2, b
+        p1 = a.getGlobalPt((200,0))
+        p2 = a.getGlobalPt((-200, 0))
+        r = Robot(*p1, 1, 45, 60)
+        r.vx = 50
+        r.wAng = -1
+        r2 = Robot(*p2, 1, 45, 60)
+        r2.vx = 50
+        r2.wAng = 1
+        b = Ball(*a.getGlobalPt((0, 0)),70)
+        b.vx = 30
+        b.vy = 0
+    initScene()
 
     while True:
         for ev in pygame.event.get():
             if ev.type==pygame.QUIT:
                 sys.exit(0)
+            if ev.type == pygame.KEYDOWN:
+                if ev.key == pygame.K_r:
+                    initScene()
 
         dt=1/fps
         r2.sim(dt, b)
@@ -165,7 +177,7 @@ def main():
         b.draw(screen)
         a.draw(screen)
 
-        drawText(screen, f"inside = {a.isPtOutside(b.getPos())}", 5, 5)
+        drawText(screen, f"Outside = {a.isPtOutside(b.getPos())}", 5, 5)
 
         pygame.display.flip()
         timer.tick(fps)
