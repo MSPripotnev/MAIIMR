@@ -53,9 +53,12 @@ class Robot:
         self.L = L
         self.normal = None
         self.collided = False
+        self.M = 1
 
     def getPos(self):
         return np.array((self.x, self.y))
+    def getVec(self):
+        return rot((1,0), self.ang)
     def draw(self, screen, color):
         drawRotRect(screen, color, self.getPos(), self.L, self.W, self.ang)
         if self.normal is not None:
@@ -74,7 +77,7 @@ class Robot:
             if abs(d - d_) < thr and not self.collided:
                 #поворачиваем систему координат
                 alpha = math.atan2(self.normal[1], self.normal[0])
-                vRot=rot((ball.vx, ball.vy), -alpha)
+                vRot=rot((ball.vx - v[0], ball.vy- v[1]), -alpha)
                 vRot[0]*=-1 #отражаем x-компоненту скорости
                 ball.vx, ball.vy=rot(vRot, alpha)
                 self.collided=True
@@ -108,6 +111,13 @@ class Robot:
         self.wAng = k * dAng # П-регулятор
         self.vx = 20
 
+    def stayInPlace(self, pt):
+        v = pt - self.getPos()
+        aGoal = math.atan2(v[1], v[0])
+        aRobot = self.ang
+        dAng = limAng(aGoal - aRobot)
+        k = 0.5
+        self.wAng = k * dAng # П-регулятор
 
 class Ball:
     def __init__(self, x, y, D):
@@ -115,10 +125,11 @@ class Ball:
         self.x = x
         self.y = y
         #скорости
-        self.vx = 0
+        self.vx = 5
         self.vy = 0
         #габариты
         self.D = D
+        self.M = 1
         self.collided=False
 
     def getPos(self):
@@ -143,9 +154,43 @@ class Team:
     def draw(self, screen):
         for r in self.robots:
             r.draw(screen, (170, 170, 0) if self.isLeft else (0,0,255))
+
+    def control1(self, ball):
+        g = (1,0) if self.isLeft else (-1,0)
+        vv = [r.getVec() for r in self.robots]
+        dotProducts = [np.dot(g,v) for v in vv]
+        iBest = np.argmax(dotProducts)
+        for i,r in enumerate(self.robots):
+            if i == iBest: r.goToPos(ball.getPos())
+            else: r.stayInPlace(ball.getPos())
+
+    def control2(self, ball):
+        dd = [dist(r.getPos(), ball.getPos()) for r in self.robots]
+        iBest = np.argmin(dd)
+        for i,r in enumerate(self.robots):
+            if i == iBest: r.goToPos(ball.getPos())
+            else: r.stayInPlace(ball.getPos())
+
+    def control3(self, ball):
+        g = (1,0) if self.isLeft else (-1,0)
+        vv = [r.getVec() for r in self.robots]
+        dotProducts1 = [np.dot(g,v) for v in vv]
+        dd = [dist(r.getPos(), ball.getPos()) for r in self.robots]
+        #qq = np.add(dotProducts1, dd)
+        dotProducts3 = [np.dot(g, v) for v in vv]
+        uu = [np.subtract(r.getPos(), ball.getPos()) for r in self.robots]
+
+
+        zz = np.add(dotProducts1,dotProducts3)/dd
+        iBest = np.argmax(zz)
+
+        for i,r in enumerate(self.robots):
+            if i == iBest: r.goToPos(ball.getPos())
+            else: r.stayInPlace(ball.getPos())
+
     def sim(self, dt, ball):
+        self.control3(ball)
         for r in self.robots:
-            r.goToPos(ball.getPos())
             r.getNearestNormal(ball.getPos())
             r.sim(dt, ball)
 
@@ -177,7 +222,7 @@ class Area:
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
-    fps = 30
+    fps = 60
     b, team1, team2 = None, None, None
 
     a = Area((25, 25), sz[1]-50, sz[0]-50)
