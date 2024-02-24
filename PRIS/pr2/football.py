@@ -42,6 +42,7 @@ class Robot:
         self.W = W
         self.L = L
         self.normal = None
+        self.collided = False
 
     def getPos(self):
         return np.array((self.x, self.y))
@@ -59,16 +60,16 @@ class Robot:
         if self.normal is not None:
             d=dist(self.getPos(), ball.getPos())
             d_=np.linalg.norm(self.normal)+ball.D/2
-            thr = 5
-            if abs(d - d_)<thr and not ball.collided:
+            thr = 8
+            if abs(d - d_) < thr and not self.collided:
                 #поворачиваем систему координат
                 alpha = math.atan2(self.normal[1], self.normal[0])
                 vRot=rot((ball.vx, ball.vy), -alpha)
                 vRot[0]*=-1 #отражаем x-компоненту скорости
                 ball.vx, ball.vy=rot(vRot, alpha)
-                ball.collided=True
-            elif abs(d - d_)>2*thr:
-                ball.collided = False
+                self.collided=True
+            elif abs(d - d_) > (thr + 5):
+                self.collided = False
 
     def getNearestNormal(self, ballPt):
         pts = [
@@ -115,6 +116,9 @@ def main():
     r = Robot(350, 350, 1, 45, 60)
     r.vx = 50
     r.wAng = -1
+    r2 = Robot(200, 350, 2, 45, 60)
+    r2.vx = 50
+    r2.wAng = 1
     b = Ball(200,200,70)
     b.vx = 30
     b.vy = 20
@@ -125,12 +129,15 @@ def main():
                 sys.exit(0)
 
         dt=1/fps
+        r2.sim(dt, b)
         r.sim(dt, b)
         b.sim(dt)
+        n2 = r2.getNearestNormal(b.getPos())
         n=r.getNearestNormal(b.getPos())
 
         screen.fill((255, 255, 255))
         r.draw(screen)
+        r2.draw(screen)
         b.draw(screen)
         pygame.display.flip()
         timer.tick(fps)
