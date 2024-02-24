@@ -14,13 +14,18 @@ def rot(v, ang): #функция для поворота на угол
     s, c = math.sin(ang), math.cos(ang)
     return [v[0] * c - v[1] * s, v[0] * s + v[1] * c]
 
+def limAng(ang):
+    while ang > math.pi: ang -= 2 * math.pi
+    while ang <= -math.pi: ang += 2 * math.pi
+    return ang
+
 def rotArr(vv, ang): # функция для поворота массива на угол
     return [rot(v, ang) for v in vv]
 
 def dist(p1, p2):
     return np.linalg.norm(np.subtract(p1, p2))
 
-def drawRotRect(screen, pc, w, h, ang): #точка центра, ширина высота прямоуг и угол поворота прямогуольника
+def drawRotRect(screen, color, pc, w, h, ang): #точка центра, ширина высота прямоуг и угол поворота прямогуольника
     pts = [
         [- w/2, - h/2],
         [+ w/2, - h/2],
@@ -29,7 +34,7 @@ def drawRotRect(screen, pc, w, h, ang): #точка центра, ширина �
     ]
     pts = rotArr(pts, ang)
     pts = np.add(pts, pc)
-    pygame.draw.polygon(screen, (0, 0, 255), pts, 2)
+    pygame.draw.polygon(screen, color, pts, 2)
     # for i in range(len(pts)):
     #    pygame.draw.line(screen, (0,0,255),pts[i-1], pts[i], 2)
 
@@ -51,8 +56,8 @@ class Robot:
 
     def getPos(self):
         return np.array((self.x, self.y))
-    def draw(self, screen):
-        drawRotRect(screen, self.getPos(),self.L, self.W, self.ang)
+    def draw(self, screen, color):
+        drawRotRect(screen, color, self.getPos(), self.L, self.W, self.ang)
         if self.normal is not None:
             pc=self.getPos()
             pygame.draw.line(screen, (255,0,0), pc, pc+self.normal, 2)
@@ -93,6 +98,17 @@ class Robot:
         self.normal = vv[i]
         return vv[i]
 
+    def goToPos(self, pt):
+        v = pt - self.getPos()
+        aGoal = math.atan2(v[1], v[0])
+        aRobot = self.ang
+        dAng = limAng(aGoal - aRobot)
+
+        k = 0.5
+        self.wAng = k * dAng # П-регулятор
+        self.vx = 20
+
+
 class Ball:
     def __init__(self, x, y, D):
         #координаты
@@ -112,6 +128,26 @@ class Ball:
     def sim(self, dt):
         self.x += self.vx * dt
         self.y += self.vy * dt
+
+class Team:
+    def __init__(self, area, numRobots, step, isLeft = True) -> None:
+        L = (numRobots-1) * step
+        D = area.L / 4
+        self.robots = []
+        self.isLeft = isLeft
+        for i in range(numRobots):
+            p=(-D if isLeft else D, -L/2 + i * step)
+            ang = 0 if isLeft else math.pi
+            r = Robot(*area.getGlobalPt(p), ang, 45, 70)
+            self.robots.append(r)
+    def draw(self, screen):
+        for r in self.robots:
+            r.draw(screen, (170, 170, 0) if self.isLeft else (0,0,255))
+    def sim(self, dt, ball):
+        for r in self.robots:
+            r.goToPos(ball.getPos())
+            r.getNearestNormal(ball.getPos())
+            r.sim(dt, ball)
 
 class Area:
     def __init__(self, p0, W, L):
@@ -134,27 +170,30 @@ class Area:
         pc = np.add(self.p0, (self.L / 2, self.W / 2))
         return np.add(pc, ptLocal)
 
+    def getLocalPt(self, ptLocal): #точка относительно центра поля
+        pc = np.add(self.p0, (self.L / 2, self.W / 2))
+        return np.subtract(pc, ptLocal)
+
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
     fps = 30
-    b, r, r2 = None, None, None
+    b, team1, team2 = None, None, None
 
     a = Area((25, 25), sz[1]-50, sz[0]-50)
     def initScene():
-        nonlocal r, r2, b
+        nonlocal b, team1, team2
         p1 = a.getGlobalPt((200,0))
         p2 = a.getGlobalPt((-200, 0))
-        r = Robot(*p1, 1, 45, 60)
-        r.vx = 50
-        r.wAng = -1
-        r2 = Robot(*p2, 1, 45, 60)
-        r2.vx = 50
-        r2.wAng = 1
-        b = Ball(*a.getGlobalPt((0, 0)),70)
-        b.vx = 30
+        team1 = Team(a, 3, 100, True)
+        team2 = Team(a, 3, 100, False)
+        ptRndx = np.random.randint(-10, 11)
+        ptRndy = np.random.randint(-10, 11)
+        b = Ball(*a.getGlobalPt((ptRndx, ptRndy)),70)
+        b.vx = 0
         b.vy = 0
     initScene()
+    score1, score2 = 0, 0
 
     while True:
         for ev in pygame.event.get():
@@ -165,19 +204,24 @@ def main():
                     initScene()
 
         dt=1/fps
-        r2.sim(dt, b)
-        r.sim(dt, b)
         b.sim(dt)
-        n2 = r2.getNearestNormal(b.getPos())
-        n=r.getNearestNormal(b.getPos())
+        team1.sim(dt, b)
+        team2.sim(dt, b)
 
         screen.fill((255, 255, 255))
-        r.draw(screen)
-        r2.draw(screen)
+        team1.draw(screen)
+        team2.draw(screen)
         b.draw(screen)
         a.draw(screen)
 
-        drawText(screen, f"Outside = {a.isPtOutside(b.getPos())}", 5, 5)
+        outside = a.isPtOutside(b.getPos())
+        if outside:
+            ptLocal=a.getLocalPt(b.getPos())
+            initScene()
+            if ptLocal[0] < 0: score1 += 1
+            else: score2 += 1
+
+        drawText(screen, f"Score = {score1} : {score2}", 5, 5)
 
         pygame.display.flip()
         timer.tick(fps)
