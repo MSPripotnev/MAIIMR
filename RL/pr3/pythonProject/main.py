@@ -8,6 +8,7 @@ def drawText(screen, s, x, y):
     surf=font.render(s, True, (0,0,0))
     screen.blit(surf, (x,y))
 
+
 sz = (800, 600)
 
 def rot(v, ang): #функция для поворота на угол
