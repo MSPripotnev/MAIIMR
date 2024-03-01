@@ -55,19 +55,63 @@ class Table:
                 drawRotRect(screen, color, p, self.w, self.h, 0)
                 p2=np.add(c.p0, [self.w/2*0.8, self.h/2*0.8])
                 drawText(screen, c.obj, *p2)
-    def placeObj(self, xMouse, yMouse):
+    def placeObj(self, xMouse, yMouse, obj="X"):
         dx, dy=xMouse-self.p0[0], yMouse-self.p0[1]
         ix=max(0,min(self.nx-1, dx//self.w))
         iy=max(0,min(self.ny-1, dy//self.h))
         c=self.cells[iy][ix]
-        c.obj="X"
+        c.obj=obj
+
+    def getState(self, targetObj):
+        s=[[ 1 if self.cells[iy][ix].obj==targetObj else 0
+             for ix in range(self.nx)] for iy in range(self.ny)]
+        return s
+
+    def getScore(self, state):
+        t1=[[1,0,0],[0,1,0],[0,0,1]]
+        t2=[[0,0,1],[0,1,0],[1,0,0]]
+        t3=[[0,1,0],[0,1,0],[0,1,0]]
+        t4=[[0,0,0],[1,1,1],[0,0,0]]
+        t5=[[1,1,1],[0,0,0],[0,0,0]]
+        t6=[[0,0,0],[0,0,0],[1,1,1]]
+        t7=[[1,0,0],[1,0,0],[1,0,0]]
+        t8=[[0,0,1],[0,0,1],[0,0,1]]
+        T=[t1, t2, t3, t4, t5, t6, t7, t8]
+        score = 0
+        for t in T:
+            t_=np.ndarray.flatten(np.array(t))
+            s_=np.ndarray.flatten(np.array(state))
+            m=np.dot(t_,s_)
+            v=np.sum(m)
+            if v>score: score=v
+        return score
+
+    def getBestAction(self, stateX, state0, obj="X"): # state - это таблица 3*3, по которой можно определить выигрыш 1го игрока
+        actions=[]
+        for iy in range(self.ny):
+            for ix in range(self.nx):
+                if stateX[iy][ix]==0 and state0[iy][ix]==0:
+                    actions.append([ix, iy])
+        scores = []
+        for a in actions:
+            stateNew=np.array(stateX if obj=="X" else state0)
+            stateNew[a[1]][a[0]]=1
+            score=self.getScore(stateNew)
+            scores.append(score)
+        i = np.argmax(scores)
+        return actions[i]
 
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
     fps = 20
 
-    tbl = Table([100, 100], 50, 50, 3, 3)
+    tbl = None
+    def init():
+        nonlocal tbl
+        tbl = Table([100, 100], 50, 50, 3, 3)
+
+    init()
 
     while True:
         for ev in pygame.event.get():
@@ -75,19 +119,29 @@ def main():
                 sys.exit(0)
             if ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_r:
-                    print("Hi")
+                    init()
+                if ev.key == pygame.K_a:
+                    s1 = tbl.getState("X")
+                    s2 = tbl.getState("0")
+                    a=tbl.getBestAction(s1, s2)
+                    tbl.cells[a[1]][a[0]].obj="0"
             if ev.type == pygame.MOUSEBUTTONDOWN:
                 if ev.button == 1: #LEFT BUTTON
-                    tbl.placeObj(*ev.pos)
-                    print(*ev.pos)
-
-        dt=1/fps
+                    tbl.placeObj(*ev.pos, "X")
+                if ev.button == 3: #RIGHT BUTTON
+                    tbl.placeObj(*ev.pos, "0")
+                print(*ev.pos)
 
         screen.fill((255, 255, 255))
 
         tbl.draw(screen)
 
-        drawText(screen, f"Test = {1}", 5, 5)
+        s=tbl.getState("X")
+        score=tbl.getScore(s)
+        s2=tbl.getState("0")
+        score2=tbl.getScore(s2)
+
+        drawText(screen, f"Score X = {score}, Score 0 = {score2}", 5, 5)
 
         pygame.display.flip()
         timer.tick(fps)
