@@ -97,6 +97,13 @@ class Robot:
         self.wAng = 0
         self.vx = 0
 
+    def stayAndRotate(self, pt):
+        v=pt-self.getPos()
+        aGoal=math.atan2(v[1], v[0])
+        aRobot=self.ang
+        dAng=limAng(aGoal-aRobot)
+        self.wAng = 0.5*dAng #П-регулятор
+        self.vx = 0
 
     def sim(self, dt, ball):
         v=rot((self.vx,0), self.ang)
@@ -198,10 +205,35 @@ class Team:
             else:
                 r.stayInPlace()
 
+    def control4(self, ball):
+        # вектор в сторону команды противника
+        g = (1, 0) if self.isLeft else (-1, 0)
+        # векторы собственного направления роботов
+        vv = [r.getVec() for r in self.robots]
+        dotProducts1 = [np.dot(g, v) for v in vv]
+        iBest1 = np.argmax(dotProducts1)
+        # расстояния от робота до мяча
+        dd = [dist(r.getPos(), ball.getPos()) for r in self.robots]
+        iBest2 = np.argmin(dd)
+        # векторы от роботов до мяча
+        uu= [np.subtract(r.getPos(), ball.getPos()) for r in self.robots]
+        dotProducts3 = [np.dot(g, u) for u in uu]
+        iBest3 = np.argmax(dotProducts3)
+
+        zz=np.add(dotProducts1,dotProducts3)/np.power(dd, 2)
+        iBest = np.argmax(zz)
+
+        for i, r in enumerate(self.robots):
+            if i == iBest:
+                r.goToPos(ball.getPos() + (0, 20))
+            else:
+                r.stayAndRotate(ball.getPos())
+
     def sim(self, dt, ball, controlType):
         if controlType==1:self.control1(ball)
         if controlType==2:self.control2(ball)
         if controlType==3:self.control3(ball)
+        if controlType==4:self.control4(ball)
         for r in self.robots:
             # r.goToPos(ball.getPos())
             r.getNearestNormal(ball.getPos())
@@ -268,8 +300,8 @@ def main():
 
         dt=1/fps
 
-        team.sim(dt, b, 1)
-        team2.sim(dt, b, 3)
+        team.sim(dt, b, 3)
+        team2.sim(dt, b, 4)
         b.sim(dt)
 
         ok = a.isPtInside(b.getPos())
