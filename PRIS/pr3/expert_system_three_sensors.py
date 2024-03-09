@@ -137,10 +137,11 @@ def main():
 
     mode=Mode(r)
     mode1=ModeGoTo(r, 400,400)
-    mode2=ModeAvoid(r, objs)
+    mode2=ModeAvoid(r, objs, 3)
     mode3=ModeRotation(r, 3)
+    modeSuper=SupervisorMode(r, objs, 400,400)
 
-    mode=mode1
+    mode=modeSuper
 
     logFile = None
 
