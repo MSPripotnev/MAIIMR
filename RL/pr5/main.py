@@ -2,6 +2,11 @@ import sys, pygame
 import numpy as np
 import math
 
+# 1 задание случайных центров кластеров
+# 2 поиск ближайших точек к каждому кластеру
+# 3 перерасчет положений центров кластеров как геоме. ц. соотв. подмножеств точек
+# 4 проверка величины смещения ц
+
 pygame.font.init()
 font = pygame.font.SysFont('Comic Sans MS', 20)
 def drawText(screen, s, x, y):
