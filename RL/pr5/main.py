@@ -65,7 +65,7 @@ def main():
 
                 if ev.key == pygame.K_2:
                     for p in pts:
-                        dd=[dist(p, c) for c in centroids]
+                        dd=[dist(p[:2], c[:2]) for c in centroids]
                         label=np.argmin(dd)
                         p[2]=label
 
