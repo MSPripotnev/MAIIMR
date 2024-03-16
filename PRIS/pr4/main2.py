@@ -39,7 +39,7 @@ def drawRotRect(screen, color, pc, w, h, ang): #точка центра, шир�
 class World:
     def __init__(self):
         self.robots=[ Robot((30,30)), Robot((200,30))]
-        self.objs=[ Obj((100,150)), Obj((200,150)) ]
+        self.objs=[ ]
         self.goal=(300,400)
         self.finishedObjs=[]
     def draw(self, screen):
@@ -67,15 +67,23 @@ class Mode:
         self.state="Wait" #"Go","Take","Carry","Put"
         self.obj=None
     def control(self, world):
+
+        if self.state == "Stop":
+            o = world.getFreeObj()
+            if o is not None:
+                self.obj=o
+                self.state="Go"
+                self.obj.state = "Taken"
+
         if self.state=="Wait":
             self.robot.speed=(0,0)
-            self.state="Go"
-        elif self.state=="Go":
-
             if self.obj==None:
                 self.obj=world.getFreeObj()
-                self.obj.state="Taken"
+                if self.obj is not None:
+                    self.obj.state="Taken"
+                    self.state = "Go"
 
+        elif self.state=="Go":
             d=dist(self.obj.pos, self.robot.pos)
             if d<10:
                 self.state="Take"
@@ -134,6 +142,10 @@ def main():
     timer = pygame.time.Clock()
     fps = 20
 
+    time=0
+    dtNewObj=2
+    lastTimeNewObj=0
+
     world=World()
 
     while True:
@@ -145,22 +157,26 @@ def main():
                     print("Hi")
 
         dt=1/fps
+
+        if time-lastTimeNewObj>dtNewObj:
+            world.objs.append(Obj((
+                np.random.randint(50, 750),
+                np.random.randint(50, 550))))
+            lastTimeNewObj=time
+
         world.sim(dt)
-
-
-        if len(world.objs)==0:
-            world.objs.append( Obj((
-                np.random.randint(50,100),
-                np.random.randint(50,100))) )
-            world.robot.mode.state="Wait"
-
 
         screen.fill((255, 255, 255))
         world.draw(screen)
 
-        drawText(screen, f"Test = {1}", 5, 5)
+        drawText(screen, f"Time = {time:.2f}", 5, 5)
+        drawText(screen, f"Num objs = {len(world.objs)}", 5, 25)
+        drawText(screen, f"Num finished = {len(world.finishedObjs)}", 5, 45)
+        timePerObj=0 if len(world.finishedObjs) == 0 else time/len(world.finishedObjs)
+        drawText(screen, f"Time per obj = {timePerObj:.2f}", 5, 65)
 
         pygame.display.flip()
         timer.tick(fps)
+        time+=dt
 
 main()
