@@ -45,13 +45,78 @@ class NGon: #многоугольник
     def draw(self, screen):
         for i in range(len(self.pts)):
             pygame.draw.line(screen,(0,0,255), self.pts[i-1], self.pts[i], 2)
+    def inflate(self, r):
+        c=np.mean(self.pts, axis=0)
+        res=[]
+        for p in self.pts:
+            v=np.subtract(p,c)
+            L=np.linalg.norm(v)
+            v=v/L*(L+r)
+            res.append(c+v)
+        return NGon(res)
+
+class Edge:
+    def __init__(self, n1, n2):
+        self.n1=n1
+        self.n2=n2
+        self.w=0
+
+class Node:
+    def __init__(self, x, y):
+        self.x=x
+        self.y=y
+        self.edges=[]
+    def getPos(self):
+        return [self.x, self.y]
+    def draw(self, screen):
+        pygame.draw.circle(screen, (255, 0, 0), self.getPos(), 3, 2)
+        for e in self.edges:
+            pygame.draw.line(screen, (150,0,150), e.n1.getPos(), e.n2.getPos(), 1)
+
+def ccw(A,B,C):
+    return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+# Return true if line segments AB and CD intersect
+def intersect(A,B,C,D):
+    return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
+
+def ok_segment(A, B, objects):
+    for o in objects:
+        for i in range(len(o.pts)):
+            C, D=o.pts[i-1], o.pts[i]
+            if intersect(A, B, C, D):
+                return False
+    return True
+
+class Graph:
+    def __init__(self):
+        self.nodes=[]
+    def draw(self, screen):
+        for n in self.nodes:
+            n.draw(screen)
+    def connectAll(self):
+        for n1 in self.nodes:
+            for n2 in self.nodes:
+                if n1!=n2:
+                    n1.edges.append(Edge(n1, n2))
+    def connect(self, objects):
+        for n1 in self.nodes:
+            for n2 in self.nodes:
+                if n1!=n2:
+                    if ok_segment(n1.getPos(), n2.getPos(), objects):
+                        n1.edges.append(Edge(n1, n2))
 
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
     fps = 20
 
-    objs=[]
+    graph=Graph()
+
+    with open("robot.txt", "r") as f:
+        lines = f.readlines()
+        pts=[re.split(r":\s+", line)[1] for line in lines]
+        ptA, ptB = [[float(s) for s in v.strip("\n").split(" ")] for v in pts]
+
     with open("scene.txt", "r") as f:
         lines=f.readlines()
         def parseObj(s):
@@ -60,6 +125,17 @@ def main():
         vals=[parseObj(line) for line in lines]
         objs=[NGon(v) for v in vals]
 
+    R=30
+    obstacles=[]
+    for o in objs:
+        o2=o.inflate(R)
+        obstacles.append(o2)
+        for p in o2.pts:
+            graph.nodes.append(Node(*p))
+
+    graph.nodes.append(Node(*ptA))
+    graph.nodes.append(Node(*ptB))
+    graph.connect(obstacles)
 
     while True:
         for ev in pygame.event.get():
@@ -71,8 +147,15 @@ def main():
         dt=1/fps
         screen.fill((255, 255, 255))
 
+        for p in [ptA,ptB]:
+            pygame.draw.circle(screen, (255,255,0), p, 5, 2)
+
         for o in objs:
             o.draw(screen)
+            o2=o.inflate(R)
+            o2.draw(screen)
+
+        graph.draw(screen)
 
         drawText(screen, f"Test = {1}", 5, 5)
 
