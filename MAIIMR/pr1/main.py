@@ -68,10 +68,14 @@ class Node:
         self.edges=[]
     def getPos(self):
         return [self.x, self.y]
+    def getWeight(self, start):
+        return dist(np.array([self.x, self.y]), np.array([start.x, start.y]))
     def draw(self, screen):
         pygame.draw.circle(screen, (255, 0, 0), self.getPos(), 3, 2)
         for e in self.edges:
             pygame.draw.line(screen, (150,0,150), e.n1.getPos(), e.n2.getPos(), 1)
+    def __hash__(self) -> int:
+        return hash(self.x * (self.y + 10))
 
 def ccw(A,B,C):
     return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
@@ -105,6 +109,65 @@ class Graph:
                     if ok_segment(n1.getPos(), n2.getPos(), objects):
                         n1.edges.append(Edge(n1, n2))
 
+    def findBestFrontNode(self, front, dist_old):
+        res = None
+        min = sys.float_info.max
+        for i in range(len(front)):
+            n = front[i]
+            d = dist_old[n]
+            if (d < min):
+                min = d
+                res = n
+            return res
+
+    def findWay(self, Start, End):
+        Dist_old = {}
+        Dist_new = {}
+        Dist_old[Start] = Dist_new[Start] = 0
+        prev = {}
+        for n in self.nodes:
+            n.visited = False
+            Dist_old[n] = sys.float_info.max
+            if (n == Start): Dist_old[n] = 0
+            Dist_new[n] = 0
+
+        front = [Start]
+        while(len(front) > 0):
+            curr = self.findBestFrontNode(front, Dist_old)
+            curr.visited = True
+            front.remove(curr)
+
+            for i in range(len(curr.edges)):
+                next = curr.edges[i].n2
+                if (next.visited):
+                    continue
+                if (next not in front):
+                    front.append(next)
+
+                Dist_new[next] = Dist_old[curr] + curr.getWeight(next)
+                if (Dist_new[next] < Dist_old[next]):
+                    Dist_old[next] = Dist_new[next]
+                    prev[next] = curr
+
+        Res = []
+        if (End not in prev.keys()):
+            return None
+
+        curr = prev[End]
+        Res.append(End)
+        while (True):
+            if (curr == Start):
+                break
+            Res.append(curr)
+            if (End not in prev.keys()):
+                return None
+            curr = prev[curr]
+
+        Res.append(Start)
+        Res.reverse()
+
+        return Res
+
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
@@ -133,9 +196,12 @@ def main():
         for p in o2.pts:
             graph.nodes.append(Node(*p))
 
-    graph.nodes.append(Node(*ptA))
-    graph.nodes.append(Node(*ptB))
+    nStart = Node(*ptA)
+    nEnd = Node(*ptB)
+    graph.nodes.append(nStart)
+    graph.nodes.append(nEnd)
     graph.connect(obstacles)
+    way = graph.findWay(nStart, nEnd)
 
     while True:
         for ev in pygame.event.get():
@@ -154,6 +220,9 @@ def main():
             o.draw(screen)
             o2=o.inflate(R)
             o2.draw(screen)
+
+        for i in range(0, len(way)-1):
+            pygame.draw.line(screen, (150,0,0), (way[i].x, way[i].y), (way[i+1].x, way[i+1].y), 10)
 
         graph.draw(screen)
 
