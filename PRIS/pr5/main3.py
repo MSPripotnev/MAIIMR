@@ -8,6 +8,7 @@ import numpy as np
 from helper import *
 from http_server import MyHTTPServer, HTTPError, Response
 from threading import Thread
+import json
 
 WIDTH, HEIGHT=800, 600
 
@@ -42,6 +43,7 @@ class Robot:
                    Sensor(self, *v0),
            Sensor(self, *rot(v0, 45 / 180 * np.pi)) ]
         self.stats=RobotStats()
+        self.lastCollisions=[]
     def getPos(self):
         return (self.x, self.y)
     def getObjs(self, ind, objs):
@@ -81,6 +83,12 @@ class Robot:
         self.debugInfo=f"nn = {s}, r = {rule}"
 
     def sim(self, dt):
+        V=np.linalg.norm(self.vLin)
+        vMax=50
+        if V>vMax: self.vLin*=vMax/V
+        wMax=90
+        if abs(self.vRot)>vMax: self.self.vRot*=wMax/abs(self.vRot)
+
         v=rot((self.vLin,0), self.ang) #вектор продольного направления
         self.x+=v[0]*dt
         self.y+=v[1]*dt
@@ -129,9 +137,10 @@ class RobotStats:
         self.coveredDist = 0
 
 class RobotHTTPServer (MyHTTPServer):
-    def __init__(self, host, port, server_name, robots):
+    def __init__(self, host, port, server_name, robots, objects):
         super().__init__(host, port, server_name)
         self.robots=robots
+        self.objects=objects
 
     def handle_request(self, req):  # непосредственное формирование текста ответа клиенту
         if req.path == '/robots' and req.method == 'GET':
@@ -164,8 +173,13 @@ class RobotHTTPServer (MyHTTPServer):
             if vecMode:
                 body += f"RobotHTTPServer: Applying robot {robot_id} rot. velocity: {robot_va} <br>"
 
+        #выдача пользоватаелю/игроку информации об игровой ситуации
         if vecMode:
-            body=f"{R.x:.2f} {R.y:.2f} {R.ang:.2f}"
+            # body=f"{R.x:.2f} {R.y:.2f} {R.ang:.2f}"
+            pp=[(r.x, r.y, r.ang) for r in self.robots]
+            oo=[(o.x, o.y) for o in self.objects if len(o.detectionFlags)==0]
+            D={"pose":[R.x, R.y, R.ang], "robots":pp, "objects":oo }
+            body = json.dumps(D)
 
         if 'text/html' in accept: contentType = 'text/html; charset=utf-8'
         elif vecMode: contentType = 'text/html; charset=utf-8'
@@ -179,8 +193,21 @@ def main():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     timer = pygame.time.Clock()
 
-    robots = []
+    serv=None
 
+    objs = []
+
+    def initObjs():
+        nonlocal objs
+        objs = []
+        for i in range(20):
+            x = np.random.randint(50, WIDTH - 50)
+            y = np.random.randint(50, HEIGHT - 50)
+            objs.append(Obj(x, y))
+
+    initObjs()
+
+    robots = []
     def initRobots():
         nonlocal robots
         robots = [Robot(0, 130, 130), Robot(1, 330, 330), Robot(2, 130, 330)]
@@ -188,12 +215,13 @@ def main():
     initRobots()
 
     def startServer():
+        nonlocal serv
         #SERVER:
         # HOWTO: http://127.0.0.1:8888/?id=1&vx=55&va=45
         host = "127.0.0.1"
         port = 8888
         name = "127.0.0.1"  # "Robot Server"
-        serv = RobotHTTPServer(host, port, name, robots)
+        serv = RobotHTTPServer(host, port, name, robots, objs)
         try: serv.serve_forever()
         except KeyboardInterrupt:
             pass
@@ -211,11 +239,6 @@ def main():
     tSim=0
     tInd=0
 
-    objs=[]
-    for i in range(20):
-        x=np.random.randint(50, WIDTH-50)
-        y=np.random.randint(50, HEIGHT-50)
-        objs.append(Obj(x, y))
 
     logFile = None
 
@@ -248,6 +271,19 @@ def main():
                         objs.clear()
                         for p in pts:
                             objs.append(Obj(*p))
+                    if serv is not None:
+                        serv.objects=objs
+                        serv.robots=robots
+                if event.key == pygame.K_r:
+                    tSim=0
+                    tInd = 0
+                    initRobots()
+                    initObjs()
+                    logFile= open("log.txt", "w")
+                    if serv is not None:
+                        serv.objects=objs
+                        serv.robots=robots
+
 
         screen.fill( (255,255,255) )
 
@@ -255,17 +291,25 @@ def main():
         # r.vLin = 50
         # r.vRot = -0.2
 
+        finish=False
+        nn=[1 if len(o.detectionFlags)>0 else 0 for o in objs]
+        if sum(nn)==len(objs):
+            finish = True
+
         # экспертное управление
         for r in robots:
-
 
             # r.control(objs)
             r.sim(1/fps)
 
-            for o in objs:
+            newCollisions = []
+
+            for o in objs: #проверка объектов на столкновения с роботом
                 if r.contains(*o.getPos()):
-                    o.color = (255, 0, 0)
-                    r.stats.nColl+=1
+                    if not o in r.lastCollisions:
+                        o.color = (255, 0, 0)
+                        r.stats.nColl+=1
+                    newCollisions.append(o)
                 else:
                     for s in r.sensors:
                         if s.contains(*o.getPos()):
@@ -274,6 +318,7 @@ def main():
                                 o.detectionFlags.append(r.id)
                             break
                         else: o.color=(0,0,255)
+            r.lastCollisions=newCollisions
 
         for r in robots:
             r.draw(screen)
@@ -293,8 +338,14 @@ def main():
                 Q=calcControlQuality(tSim, r.stats)
                 drawText(screen, f"Q[{r.id}]={Q:.3f}", 5, yLast:=yLast+25)
 
-        if logFile is not None and tInd%fps==0:
-            logFile.write(f"{tSim:.2f} {r.coveredDist:.2f} {r.stats.nColl} {r.stats.nDet}\n")
+        if finish:
+            nn = [r.stats.nDet for r in robots]
+            winner=np.argmax(nn)
+            drawText(screen, f"Robot {winner} wins!", 150, 5)
+        else:
+            if logFile is not None and tInd%fps==0:
+                for r in robots:
+                    logFile.write(f"{tSim:.2f} {r.stats.coveredDist:.2f} {r.stats.nColl} {r.stats.nDet}\n")
 
         pygame.display.flip()
         timer.tick(fps)
