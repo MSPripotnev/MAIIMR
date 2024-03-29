@@ -59,7 +59,7 @@ def findIntersection(sensor, robots):
     return None
 
 class Sensor:
-    def __init__(self, robot, x, y, ang, d=50):
+    def __init__(self, robot, x, y, ang, d=100):
         self.d = d
         self.x = x
         self.y = y
@@ -89,7 +89,7 @@ class Car:
     def __init__(self, x, y, ang):
         self.x=x; self.y=y; self.ang=ang
         self.L=150; self.W=75
-        self.vLin=50
+        self.vLin=0
         self.vSteer=0
         self.vBrake=0
         self.angSteer=0.1
@@ -143,7 +143,7 @@ def main():
 
     car1 = Car(200, 100, 0.1)
     car2 = Car(600, 100, -0.05)
-    car3 = Car(370, 200, 1)
+    car3 = Car(150, 200, 3.14)
 
     allowLog = False
     f=open("log.txt", "w")
@@ -156,21 +156,21 @@ def main():
             if ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_r:
                     print("Hi")
-                if ev.key == pygame.K_w:
-                    car3.vLin=50
+                elif ev.key == pygame.K_w:
+                    car3.vLin=25
                     car3.vSteer=0
                     car3.vBrake=0
-                if ev.key == pygame.K_s:
-                    car3.vLin=-50
+                elif ev.key == pygame.K_s:
+                    car3.vLin=-25
                     car3.vSteer=0
                     car3.vBrake=0
-                if ev.key == pygame.K_f:
+                elif ev.key == pygame.K_f:
                     allowLog=not allowLog
                     if allowLog: f=open("log.txt", "w")
                     else: f.close()
-                if ev.key == pygame.K_a: car3.vSteer=-2
-                if ev.key == pygame.K_d: car3.vSteer=2
-                if ev.key == pygame.K_z:
+                elif ev.key == pygame.K_a: car3.vSteer=-2
+                elif ev.key == pygame.K_d: car3.vSteer=2
+                elif ev.key == pygame.K_z:
                     car3.vBrake=1
                     car3.vSteer=0
                     car3.angSteer=0
@@ -199,9 +199,10 @@ def main():
 
         vv=[s.getValue(cars) for s in car3.sens]
         vv2=[int(v) for v in vv]
+        vv3=f"{vv2}".strip("[]()")
 
         if allowLog:
-            f.write(f"{vv2}, [{car3.vLin, car3.vSteer}]\n")
+            f.write(f"{vv3}, {car3.vLin}, {car3.vSteer}\n")
 
         drawText(screen, f"Values = {vv2}", 5, 5)
         drawText(screen, f"Log = {allowLog}", 5, 20)
