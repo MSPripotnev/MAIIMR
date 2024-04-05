@@ -70,15 +70,13 @@ def getTorque(f, p, c):
     return np.sign(z)*f__*np.linalg.norm(r)
 
 class Bike:
-    def __init__(self, x, y, ang, L=50, D=30):
+    def __init__(self, x, y, ang, L=100, D=30):
         self.L=L
         self.D=D
         self.m=1
         self.p=np.array((x,y), dtype=float)
         self.a=np.zeros(2, dtype=float)
         self.v=np.zeros(2, dtype=float)
-
-        self.gas=0
 
         self.J=1
         self.eps=0
@@ -94,39 +92,20 @@ class Bike:
         p1, p2 = rotArr([p1, p2], self.ang)
         p1, p2 = np.add([p1, p2], self.p)
         return p1, p2
-
-    def getAngle(self):
-        p1, p2 = self.getP1P2()
-        d=np.subtract(p2, p1)
-        return math.atan2(d[1], d[0])
-
     def draw(self, screen):
         p1, p2 = self.getP1P2()
         pygame.draw.line(screen, (0,100,100), p1, p2, 2)
         pygame.draw.circle(screen, (0,100,100), p1, self.D/2, 2)
         pygame.draw.circle(screen, (0,100,100), p2, self.D/2, 2)
     def sim(self, dt):
-        F=self.m * np.array([0, 50])
+        F=self.m * np.array([0, 9.8])
         R=np.array(F)
         for f in self.forces:
             f_=np.array(f)
-            R=R+f_*300 #TODO: сделать пропорционально глубине погружения
-
-        if len(self.contactPts)>0:
-            p1, p2 = self.getP1P2()
-            dir=np.subtract(p2, p1)
-            dir=dir/dist(p1, p2)
-            self.v += dir*self.gas
-
+            R=R+f_*100 #TODO: сделать пропорционально глубине погружения
         self.a = R/self.m
         self.v+=self.a*dt
         self.p+=self.v*dt
-
-        if len(self.contactPts) > 0:
-            self.v[1] *= 0.2
-
-        self.v*=0.95
-        self.gas*=0.9
 
         Q=0
         for p, f in zip(self.contactPts, self.forces):
@@ -137,7 +116,7 @@ class Bike:
         self.w+=self.eps*dt
         self.ang+=self.w*dt
 
-    def findPointsAndNormals(self, terrain, R):
+    def findPointsAndNormals(self, terrain):
         res=[]
         for i in range(1, len(terrain.pts)):
             segm=[terrain.pts[i-1], terrain.pts[i]]
@@ -152,12 +131,6 @@ class Bike:
                 n = getSegmNormal(segm)[1]
                 if p is not None:
                     res.append([p, n])
-        for p_ in [p1, p2]:
-            for p in terrain.pts:
-                if dist(p, p_)<R:
-                    v=np.subtract(p, p_)/dist(p, p_)
-                    res.append([p, v])
-
         return res
 
 class Terrain:
@@ -167,20 +140,6 @@ class Terrain:
         for i in range(1, len(self.pts)):
             pygame.draw.line(screen, (0,0,255), self.pts[i-1], self.pts[i], 2)
 
-class ControlSyst:
-    def __init__(self, bike):
-        self.bike=bike
-    def control(self):
-        if np.linalg.norm(self.bike.v)<10:
-            self.bike.gas = 30
-        elif np.linalg.norm(self.bike.v)<50:
-            self.bike.gas=10
-            if abs(self.bike.getAngle())<0.5:
-                self.bike.gas = 30
-        else:
-            self.bike.gas=0
-
-
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
@@ -188,9 +147,7 @@ def main():
 
     terrain=Terrain([[100, 400],[200, 300], [300, 400], [400, 390], [500, 300], [600, 380], [700, 250]])
     bike = Bike(300, 200, 0)
-    cs=ControlSyst(bike)
 
-    AUTO=False
     while True:
         for ev in pygame.event.get():
             if ev.type==pygame.QUIT:
@@ -198,25 +155,15 @@ def main():
             if ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_r:
                     print("Hi")
-                if ev.key == pygame.K_d:
-                    bike.gas=10
-                if ev.key == pygame.K_f:
-                    bike.gas=30
-                if ev.key == pygame.K_a:
-                    bike.gas=0
-                if ev.key == pygame.K_1:
-                    AUTO=True
 
         dt=1/fps
 
-        pns=bike.findPointsAndNormals(terrain, bike.D/2)
+        pns=bike.findPointsAndNormals(terrain)
         bike.contactPts = [x[0] for x in pns]
         bike.forces = [x[1] for x in pns]
 
-        if AUTO:
-            cs.control()
-
         bike.sim(dt)
+
 
         screen.fill((255, 255, 255))
         terrain.draw(screen)

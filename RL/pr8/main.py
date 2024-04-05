@@ -136,7 +136,6 @@ class Car:
             self.ang+=w
 
 
-
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
