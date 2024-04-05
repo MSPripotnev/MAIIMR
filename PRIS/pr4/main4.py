@@ -105,6 +105,9 @@ class World:
         for iy in range(int(pc.pos[1]-pc.h/2), int(pc.pos[1]+pc.h/2), 20):
             res.append(Potential([int(pc.pos[0]+pc.w/2), iy], 100500, 3))
 
+        q = Potential(self.goal, 100500, -500)
+        res.append(q)
+
         return res
 
     def simPotentials(self, ptls, dt):
@@ -174,8 +177,6 @@ class Mode:
             self.robot.attachedObj=None
             self.robot.speed=(0,0)
             self.state = "Stop"
-
-
 class Robot:
     def __init__(self, pos):
         self.pos=pos
@@ -190,6 +191,7 @@ class Robot:
     def sim(self, dt, world):
         self.mode.control(world)
         self.pos=np.add(self.pos, np.array(self.speed)*dt)
+        self.speed=tuple(np.array(self.speed)*0.9) #демпфирование скорости
         self.pos=np.add(self.pos, self.posCorrection)
         self.potential.pos=self.pos
 
