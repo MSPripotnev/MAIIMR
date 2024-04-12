@@ -99,6 +99,7 @@ def main():
 
     WAIT_FOR_SAMPLE=False
 
+    net=None
     while True:
         for ev in pygame.event.get():
             if ev.type==pygame.QUIT:
@@ -107,9 +108,21 @@ def main():
             if ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_r:
                     print("Hi")
+                if ev.key == pygame.K_n:
+                    import model
+                    net = model.make_net()
+                    net.load_weights("net.h5")
             if ev.type == pygame.MOUSEBUTTONDOWN:
-                pTarget=ev.pos
-                WAIT_FOR_SAMPLE=True
+                if ev.button == 1:
+                    pTarget = ev.pos
+                    WAIT_FOR_SAMPLE = True
+                if ev.button == 3:
+                    if net is not None:
+                        inps=(np.array(np.subtract(ev.pos, manip.getP0()), dtype=np.float64))
+                        inps/=100
+                        y=net.predict(np.reshape(inps, (1,2)))[0]
+                        manip.a1=y[0]
+                        manip.a2=y[1]
 
         dt=1/fps
 
@@ -117,10 +130,11 @@ def main():
         manip.draw(screen)
         # manip.a1+=0.1
         # manip.a2+=-0.05
-        manip.coordDescent(pTarget)
+        if net is None:
+            manip.coordDescent(pTarget)
 
         if WAIT_FOR_SAMPLE and dist(manip.getP2(), pTarget)<10:
-            f.write(f"{pTarget[0]}, {pTarget[1]}, {manip.a1:.2f}, {manip.a2:.2f}\n")
+            f.write(f"{pTarget[0]-manip.x}, {pTarget[1]-manip.y}, {limAng(manip.a1):.2f}, {limAng(manip.a2):.2f}\n")
             WAIT_FOR_SAMPLE=False
 
         pygame.draw.circle(screen, (255,0,0), pTarget, 3, 2)
