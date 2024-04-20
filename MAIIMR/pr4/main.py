@@ -44,6 +44,7 @@ class Manipulator:
         self.L2=L2
         self.a1=0
         self.a2=0
+        self.target=None
     def getP0(self):
         return [self.x, self.y]
     def getP1(self):
@@ -60,6 +61,14 @@ class Manipulator:
         pygame.draw.line(screen, (0,0,0), p0, p1,2)
         pygame.draw.line(screen, (0,0,0), p1, p2,2)
         pygame.draw.circle(screen, (0,0,255), p2,3, 2)
+        if self.target is not None:
+            pygame.draw.circle(screen, (0,255,0), self.target,3, 2)
+    def getJacobianMat(self):
+        dxda1=-self.L1*math.sin(self.a1)-self.L2*math.sin(self.a1+self.a2)
+        dxda2=-self.L2*math.sin(self.a1+self.a2)
+        dyda1=self.L1*math.cos(self.a1)+self.L2*math.cos(self.a1+self.a2)
+        dyda2=self.L2*math.cos(self.a1+self.a2)
+        return np.array([[dxda1, dxda2],[dyda1, dyda2]])
 
     def coordDescent(self, pTarget):
         def go1(delta):
@@ -84,7 +93,49 @@ class Manipulator:
         go1(-0.01)
         go2(0.01)
         go2(-0.01)
+    def repell(self, obj, K=0.1):
+        L=dist(obj.getPos(), self.getP2())
+        v=np.subtract(self.getP2(), obj.getPos())
+        v/=L
 
+        F=v*100000 / L**2
+        A=np.linalg.norm(F)
+
+        A0 = np.linalg.norm(v * 100000 / obj.R ** 2)
+
+        print(A)
+
+        if L<obj.R:
+            F*=A0/A
+        else:
+            if(A<10): F*=10/A
+            if(A>100): F*=100/A
+
+        delta=F #смещение вдоль силы
+        self.target = np.add(self.getP2(), delta)
+
+        J=self.getJacobianMat()
+        J_=np.linalg.inv(J)
+        dang=J_@delta
+
+        self.a1+=K*dang[0]
+        self.a2+=K*dang[1]
+    def repellMulti(self, obj, N=10):
+        #много итераций нужно чтоб побороть нелинейность манипулятора - кусочно-линейными
+        #аппроксимациями (через матрицы Якоби)
+        for i in range(30):
+            self.repell(obj, 0.03)
+
+
+class Obj:
+    def __init__(self, x, y):
+        self.x=x
+        self.y=y
+        self.R=50
+    def getPos(self):
+        return [self.x, self.y]
+    def draw(self, screen):
+        pygame.draw.circle(screen, (0,0,0), self.getPos(), self.R, 2)
 
 def main():
     screen = pygame.display.set_mode(sz)
@@ -95,10 +146,11 @@ def main():
 
     pTarget=[0,0]
 
+    obj=Obj(480, 270)
+
     while True:
         for ev in pygame.event.get():
             if ev.type==pygame.QUIT:
-                f.close()
                 sys.exit(0)
             if ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_r:
@@ -110,21 +162,21 @@ def main():
             if ev.type == pygame.MOUSEBUTTONDOWN:
                 if ev.button == 1:
                     pTarget = ev.pos
-                if ev.button == 3:
-                    if net is not None:
-                        inps=(np.array(np.subtract(ev.pos, manip.getP0()), dtype=np.float64))
-                        inps/=100
-                        y=net.predict(np.reshape(inps, (1,2)))[0]
-                        manip.a1=y[0]
-                        manip.a2=y[1]
+
 
         dt=1/fps
 
         screen.fill((255, 255, 255))
         manip.draw(screen)
+        obj.draw(screen)
         # manip.a1+=0.1
         # manip.a2+=-0.05
-        manip.coordDescent(pTarget)
+        p=pTarget
+        # if manip.target is not None:
+        #     p=pTarget - np.subtract(manip.target, manip.getP2())
+        manip.coordDescent(p)
+        manip.repellMulti(obj)
+
 
 
         pygame.draw.circle(screen, (255,0,0), pTarget, 3, 2)
