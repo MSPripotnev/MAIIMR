@@ -88,21 +88,63 @@ def evaluateMat(M0):
 def getSubmatIJ(M, i, j): #получение подматрицы для маршрутов, содержащих ребро i,j
     res=[]
     for y in range(M.shape[0]):
-        if y==i: continue
+        DEL1 = y==i
         row=[]
         for x in range(M.shape[1]):
-            if x==j: continue
-            row.append(M[y, x])
+            DEL2 = x==j
+            v=INF if (DEL1 or DEL2) else M[y, x]
+            row.append(v)
         res.append(row)
     res=np.array(res,dtype=int)
     return res
+
 def getSubmatIJ_(M, i, j): #получение подматрицы для маршрутов, не содержащих ребро i,j
     res=np.array(M)
-    for y in range(M.shape[0]):
-        res[y,j]=INF
-    for x in range(M.shape[1]):
-        res[i,x]=INF
+    res[i, j] = INF
     return res
+
+def selectBestEdge(M): #выбор ребра для разбиения
+    n=M.shape[0]
+    bestIJ=None
+    deltaQBest=0
+    for i in range(n):
+        for j in range(n):
+            v=M[i,j]
+            if v==INF: continue
+            M_ij = getSubmatIJ(M, i, j)
+            M_ij_ = getSubmatIJ_(M, i, j)
+            Q=evaluateMat(M_ij) #предпочтительная половина разбиения
+            Q_=evaluateMat(M_ij_) #остаточная половина разбиения
+            if Q>Q_:
+                delta=Q-Q_
+                if delta>deltaQBest:
+                    bestIJ = (i, j)
+                    deltaQBest=deltaQBest
+    return bestIJ, deltaQBest
+
+
+class Node:
+    def __init__(self, M):
+        self.M=M
+        self.i=-1
+        self.j=-1
+        self.childs=[]
+        self.Q=0
+    def split(self):
+        ij, dq=selectBestEdge(self.M)
+        if ij is not None:
+            (self.i, self.j)=ij
+            M_ij = getSubmatIJ(self.M, self.i, self.j)
+            M_ij_ = getSubmatIJ_(self.M, self.i, self.j)
+            n1=Node(M_ij)
+            n1.Q = evaluateMat(M_ij)  # предпочтительная половина разбиения
+            n2=Node(M_ij_)
+            n2.Q = evaluateMat(M_ij_)  # остаточная половина разбиения
+            self.childs.append(n1)
+            self.childs.append(n2)
+            n1.split()
+            # n2.split()
+
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
@@ -127,6 +169,7 @@ def main():
     indsBest, LBest=None, None
 
     M0, M1, M2=None, None, None
+    node=None
     while True:
         for ev in pygame.event.get():
             if ev.type==pygame.QUIT:
@@ -155,15 +198,34 @@ def main():
                     print("M_23=", M_23)
                     print("Q_23=", evaluateMat(M_23)) #матрица, содержащая ребро 2,3
                     print("M_23_=", M_23_)
-                    print("Q_23_=", evaluateMat(M_23_)) #матриц
+                    print("Q_23_=", evaluateMat(M_23_)) #матрица, не содержащая ребро 2,3
                 if ev.key == pygame.K_5:
                     #для примера проведем разбиение по 2 строке и 3 столбцу
                     M_52=getSubmatIJ(M2, 5, 2)
                     M_52_=getSubmatIJ_(M2, 5, 2)
                     print("M_52=", M_52)
-                    print("Q_52=", evaluateMat(M_52)) #матрица, содержащая ребро 2,3
+                    print("Q_52=", evaluateMat(M_52)) #матрица, содержащая ребро 5,2
                     print("M_52_=", M_52_)
-                    print("Q_52_=", evaluateMat(M_52_)) #матрица, не содержащая ребро 2,3
+                    print("Q_52_=", evaluateMat(M_52_)) #матрица, не содержащая ребро 5,2
+                if ev.key == pygame.K_6:
+                    ij, dq=selectBestEdge(M2)
+                    print(f"ij={ij}, dq={dq}")
+                if ev.key == pygame.K_7:
+                    node=Node(M2)
+                    node.split()
+                if ev.key == pygame.K_8:
+                    s=""
+                    n=node
+                    while True:
+                        if n.i>=0 and n.j>=0:
+                            s+=f"({n.i}, {n.j}), "
+                            if len(n.childs)>0:
+                                n=n.childs[0]
+                        else: break
+                    print(s)
+
+
+
 
         dt=1/fps
 
@@ -176,6 +238,8 @@ def main():
             for i in range(1, len(route)):
                 p1,p2=pts[route[i-1]], pts[route[i]]
                 pygame.draw.line(screen, color, p1, p2, 2)
+            for i in range(len(route)):
+                drawText(screen, str(i), *pts[route[i]])
 
         drawRoute(route)
 
