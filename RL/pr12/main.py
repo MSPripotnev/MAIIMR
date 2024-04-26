@@ -36,6 +36,30 @@ def drawRotRect(screen, color, pc, w, h, ang): #точка центра, шир�
     pts = np.add(pts, pc)
     pygame.draw.polygon(screen, color, pts, 2)
 
+def calcIntersectionArea(r1, r2):
+    dx,dy=0,0
+    if r1.x < r2.x <r1.x+r1.w:
+        dx=r1.x+r1.w-r2.x
+    if r2.x < r1.x <r2.x+r2.w:
+        dx=r2.x+r2.w-r1.x
+    if r1.y < r2.y <r1.y+r1.h:
+        dy=r1.y+r1.h-r2.y
+    if r2.y < r1.y <r2.y+r2.h:
+        dy=r2.y+r2.h-r1.y
+    return dx*dy
+
+def getLastNErrors(errors, n):
+    vals=errors[-1-min(len(errors), n):-1]
+    return vals
+
+def drawPlot(screen, errors, nMax=500):
+    A=10000
+    vals=getLastNErrors(errors, nMax)
+    vals=np.multiply(vals, 100/A)
+    for i in range(1, len(vals)):
+        pygame.draw.line(screen, (0,0,0), (50+i-1, -vals[i-1]+590),(50+i, -vals[i]+590))
+
+
 class Obj:
     def __init__(self, x, y, w, h):
         self.x=x
@@ -76,13 +100,15 @@ def main():
     timer = pygame.time.Clock()
     fps = 20
 
-    room=Room(50,50,650, 520)
+    room=Room(50,50,650, 480)
     objs=[
         Obj(70,70,80, 110),
         Obj(370,470,130, 60)
     ]
     agent=Obj(300,350,70, 70)
     agent.isAgent=True
+
+    errors=[]
 
     for o in objs:
         o.vx=np.random.normal(0, 30)
@@ -101,13 +127,23 @@ def main():
             o.sim(dt, room)
         agent.sim(dt, room)
 
+        areas=[calcIntersectionArea(agent,o) for o in objs]
+        s=max(areas)
+        errors.append(s)
+
+        nVals=500
+        eAvg=np.mean(getLastNErrors(errors, nVals))
+
         screen.fill((255, 255, 255))
         room.draw(screen)
         for o in objs:
             o.draw(screen)
         agent.draw(screen)
 
-        drawText(screen, f"Test = {1}", 5, 5)
+        drawPlot(screen, errors, nVals)
+
+        drawText(screen, f"S = {s:.0f}", 5, 5)
+        drawText(screen, f"eAvg = {eAvg:.2f}", 5, 25)
 
         pygame.display.flip()
         timer.tick(fps)
