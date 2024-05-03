@@ -8,6 +8,9 @@ def drawText(screen, s, x, y):
     surf=font.render(s, True, (0,0,0))
     screen.blit(surf, (x,y))
 
+gist_start = 2
+gist_end = 4
+
 sz = (800, 600)
 
 def rot(v, ang): #функция для поворота на угол
@@ -73,14 +76,63 @@ class Obj:
         self.isAgent=False
     def getBB(self):
         return [self.x, self.y, self.w, self.h]
-    def draw(self, screen):
-        pygame.draw.rect(screen, (255,0,0) if self.isAgent else (0,0,255), self.getBB(), 2)
-    def sim(self, dt, room):
+    def draw(self, screen, selected = False):
+        pygame.draw.rect(screen, (255,0,0) if self.isAgent else (0,0,255), self.getBB(), 2 if not selected else 0)
+    def getNearestObject(self, objs = []):
+        mdist = 100000000
+        nearest = None
+        snearest = None
+        dir = 0
+        for i, o in enumerate(objs):
+            if mdist > dist([o.x, o.y], [self.x, self.y]):
+                nearest = o
+                snearest = nearest
+                mdist = dist([o.x, o.y], [self.x, self.y])
+                dir = 0
+            if mdist > dist([o.x, o.y + o.h], [self.x, self.y]):
+                nearest = o
+                snearest = nearest
+                mdist = dist([o.x, o.y + o.h], [self.x, self.y])
+                dir = 1
+            if mdist > dist([o.x + o.w, o.y], [self.x, self.y]):
+                nearest = o
+                snearest = nearest
+                mdist = dist([o.x + o.w, o.y], [self.x, self.y])
+                dir = 2
+            if mdist > dist([o.x + o.w, o.y + o.h], [self.x, self.y]):
+                nearest = o
+                snearest = nearest
+                mdist = dist([o.x + o.w, o.y + o.h], [self.x, self.y])
+                dir = 3
+        return mdist, nearest, snearest, dir
+    def getSpeed(self):
+        return math.sqrt(self.vx**2 + self.vy ** 2)
+    def sim(self, dt, room,objs = []):
         self.x+=self.vx*dt
         self.y+=self.vy*dt
-        if self.x<room.x or self.x+self.w>room.x + room.w:
+        if self.isAgent:
+            mdist, nearest, snearest, dir = self.getNearestObject(objs)
+            Vs = [math.sqrt(o.vx**2 + o.vy ** 2) for o in objs]
+            if mdist**2 < self.w * self.h * gist_start:
+                relative_dist = dist([self.x, self.y], [nearest.x, nearest.y]) / \
+                    dist([self.x, self.y], [snearest.x, snearest.y])
+                self.vx = (nearest.vy * (-1) + snearest.vy * relative_dist * 0.25)
+                self.vy = (nearest.vx * (1) + snearest.vx * relative_dist * 0.25)
+                #self.vx = self.vx / self.getSpeed() * max(Vs)
+                #self.vy = self.vy / self.getSpeed() * max(Vs)
+            elif mdist**2 > self.w * self.h * gist_end:
+                sroom = [(room.x + room.w) / 2, (room.y + room.h) / 2]
+                distx = - sroom[0] + self.x
+                disty = - sroom[1] + self.y
+                self.vx = distx / dist(sroom, [self.x, self.y]) * max(Vs)
+                self.vy = disty / dist(sroom, [self.x, self.y]) * max(Vs)
+            # if (self.x - room.x < self.vx * dt * 2):
+            #     self.vy = -30 if self.y - room.y < self.y + self.h - room.y - room.h else 30
+            # if (self.y - room.y < self.vy * dt * 2):
+            #     self.vx = -30 if self.x - room.x < self.x + self.w - room.x - room.w else 30
+        if self.x<room.x and self.vx < 0 or self.x+self.w>room.x + room.w and self.vx > 0:
             self.vx*=-1
-        if self.y<room.y or self.y+self.h>room.y + room.h:
+        if self.y<room.y and self.vy < 0 or self.y+self.h>room.y + room.h and self.vy > 0:
             self.vy*=-1
 
 class Room:
@@ -113,8 +165,8 @@ def main():
     errors=[]
 
     for o in objs:
-        o.vx=np.random.normal(0, 30)
-        o.vy=np.random.normal(0, 30)
+        o.vx=np.random.normal(100, 30)
+        o.vy=np.random.normal(100, 30)
 
     while True:
         for ev in pygame.event.get():
@@ -127,7 +179,7 @@ def main():
         dt=1/fps
         for o in objs:
             o.sim(dt, room)
-        agent.sim(dt, room)
+        agent.sim(dt, room, objs)
 
         areas=[calcIntersectionArea(agent,o) for o in objs]
         s=max(areas)
@@ -138,8 +190,10 @@ def main():
 
         screen.fill((255, 255, 255))
         room.draw(screen)
+        mdist, os, _, _ = agent.getNearestObject(objs)
+        if mdist**2 > agent.w * agent.h * gist_start: os = None
         for o in objs:
-            o.draw(screen)
+            o.draw(screen, o == os)
         agent.draw(screen)
 
         drawPlot(screen, errors, nVals)
