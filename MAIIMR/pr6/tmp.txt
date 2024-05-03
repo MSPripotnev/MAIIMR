@@ -1,0 +1,28 @@
+
+def comb(N,k): # from scipy.comb(), but MODIFIED!
+    if (k > N) or (N < 0) or (k < 0):
+        return 0
+    top = N
+    val = 1
+    while (top > (N-k)):
+        val *= top
+        top -= 1
+    n = 1
+    while (n < k+1):
+        val /= n
+        n += 1
+    return val
+
+def num2choose(n, k, i):
+    res=[]
+    next = 0
+    while k > 0:
+        c = comb(n - 1,k - 1)
+        if i < c:
+            res.append(next)
+            k = k - 1
+        else:
+            i -= c
+        n = n - 1
+        next = next + 1
+    return res
