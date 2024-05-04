@@ -38,14 +38,16 @@ def drawRotRect(screen, color, pc, w, h, ang): #точка центра, шир�
 
 def calcIntersectionArea(r1, r2):
     dx,dy=0,0
-    if r1.x < r2.x <r1.x+r1.w:
+    if r1.x <= r2.x <=r1.x+r1.w:
         dx=r1.x+r1.w-r2.x
-    if r2.x < r1.x <r2.x+r2.w:
+    elif r2.x <= r1.x <=r2.x+r2.w:
         dx=r2.x+r2.w-r1.x
-    if r1.y < r2.y <r1.y+r1.h:
+    if r1.y <= r2.y <=r1.y+r1.h:
         dy=r1.y+r1.h-r2.y
-    if r2.y < r1.y <r2.y+r2.h:
+    elif r2.y <= r1.y <=r2.y+r2.h:
         dy=r2.y+r2.h-r1.y
+    dx = min(dx, min(r1.w, r2.w))
+    dy = min(dy, min(r1.h, r2.h))
     return dx*dy
 
 def getLastNErrors(errors, n):
