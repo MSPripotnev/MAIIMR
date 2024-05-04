@@ -72,6 +72,34 @@ def calcCollisions(obj, objs):
         if o!=obj:
             s+=calcIntersectionArea(o, obj)
     return s
+
+def selectPositions(box, objs):
+    for o in objs:
+        o.pos[0]=box.pos[0]+(box.w-o.w)*np.random.rand()
+        o.pos[1]=box.pos[1]+(box.h-o.h)*np.random.rand()
+
+
+def getE(objs):
+    return sum(calcCollisions(o, objs) for o in objs)/2
+def selectPositions2(box, objs):
+    bestPositions=None
+    eMin=10000000
+    for i in range(10000):
+        selectPositions(box, objs)
+        e=getE(objs)
+        if e<eMin:
+            eMin=e
+            bestPositions=[Box([*b.pos], b.w, b.h) for b in objs]
+    for i,o in enumerate(objs):
+        P=bestPositions[i]
+        o.pos=P.pos
+        o.w, o.h=P.w, P.h
+
+def coordDescent(objs):
+    for o in objs:
+        pass
+
+
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
@@ -107,6 +135,10 @@ def main():
                     o.pos[0]-=10
                 if ev.key == pygame.K_d:
                     o.pos[0]+=10
+                if ev.key == pygame.K_1:
+                    selectPositions(box, objs)
+                if ev.key == pygame.K_2:
+                    selectPositions2(box, objs)
 
         dt=1/fps
 
@@ -120,7 +152,7 @@ def main():
         s2=sum(calcCollisions(o, objs) for o in objs)/2
 
         drawText(screen, f"S = {s}", 5, 5)
-        drawText(screen, f"S2 = {s2}", 5, 25)
+        drawText(screen, f"S2 = {int(s2)}", 5, 25)
 
         pygame.display.flip()
         timer.tick(fps)
