@@ -145,11 +145,6 @@ class GA:
         self.evaluate(p0, pts)
 
 
-
-
-
-
-
 def main():
     screen = pygame.display.set_mode(sz)
     timer = pygame.time.Clock()
