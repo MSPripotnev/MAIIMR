@@ -53,7 +53,8 @@ class Manipulator:
         return p1
     def getP2(self):
         p1=self.getP1()
-        p2=np.add(p1, [self.L2*math.cos(self.a2), self.L2*math.sin(self.a2)])
+        #TODO: check (changed a2 to a1+a2)
+        p2=np.add(p1, [self.L2*math.cos(self.a1+self.a2), self.L2*math.sin(self.a1+self.a2)])
         return p2
     def draw(self, screen):
         p0, p1, p2=self.getP0(), self.getP1(), self.getP2()
