@@ -80,23 +80,31 @@ class Creature:
 
 class GA:
     def __init__(self, numCreatures, numPoints):
+        self.numCreatures=numCreatures
         self.creatures=[]
 
         for i in range(numCreatures):
             inds=list(range(numPoints))
             np.random.shuffle(inds)
             self.creatures.append(Creature(inds))
+
     def evaluate(self, p0, pts):
         for c in self.creatures:
             c.evaluate(p0, pts)
+        self.creatures = sorted(self.creatures, key=lambda c: -c.fitness)
 
     def selectBest(self):
-        self.creatures = sorted(self.creatures, key=lambda c:-c.fitness)
         self.creatures = self.creatures[:len(self.creatures)//2]
+
+    def repopulate(self):
+        while(len(self.creatures))<self.numCreatures:
+            x, y = self.crossing()
+            self.creatures.extend([x,y])
+        self.creatures=self.creatures[:self.numCreatures]
 
     def crossing(self):
         i1=np.random.randint(0, len(self.creatures)-1)
-        i2=np.random.randint(i1, len(self.creatures))
+        i2=np.random.randint(i1+1, len(self.creatures))
 
         AB=self.creatures[i1].inds
         CD=self.creatures[i2].inds
@@ -108,7 +116,7 @@ class GA:
 
         AD=[*A, *D]
         CB=[*C, *B]
-        I=list(range(N))
+        alphabet=list(range(N))
 
         #устранение коллизий за счет подстановок
         def fixCollisions(c, alphabet):
@@ -120,7 +128,25 @@ class GA:
                             c[i]=v
                             break
 
-        #fixCollisions() TODO:...
+        fixCollisions(AD, alphabet)
+        fixCollisions(CB, alphabet)
+        return Creature(AD), Creature(CB)
+
+    def mutate(self):
+        i = np.random.randint(0, len(self.creatures))
+        I = self.creatures[i].inds
+        j = np.random.randint(1, len(I))
+        I[j-1], I[j]=I[j], I[j-1]
+
+    def step(self, p0, pts):
+        self.evaluate(p0, pts)
+        self.selectBest()
+        self.repopulate()
+        self.evaluate(p0, pts)
+
+
+
+
 
 
 
@@ -143,7 +169,7 @@ def main():
          ]
     route=list(range(len(pts)))
 
-    ga=GA(10, len(pts))
+    ga=GA(100, len(pts))
     ga.evaluate(p0, pts)
 
     indsBest, LBest=None, None
@@ -157,6 +183,11 @@ def main():
                     indsBest, LBest=findBestRouteRandom(p0, pts)
                 if ev.key == pygame.K_t:
                     indsBest, LBest=findBestRouteFullSearch(p0, pts)
+                if ev.key == pygame.K_g:
+                    for i in range(100):
+                        ga.step(p0, pts)
+                        indsBest=ga.creatures[0].inds
+                        LBest=getRouteLen(p0, pts, indsBest)
 
         dt=1/fps
 
