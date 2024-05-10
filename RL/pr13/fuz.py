@@ -30,22 +30,6 @@ class Term:
         yy=[self.F(x) for x in xx]
         plt.plot(xx, yy)
 
-t1=Term("Small", 0, 100)
-t1.draw(0, 100)
-t2=Term("Mid", 50, 100)
-t2.draw(0, 100)
-t3=Term("Big", 100, 100)
-t3.draw(0, 100)
-plt.show()
-
-#цикл активации термов при линейном изменении входной координаты
-for x in range(100):
-    a1, a2, a3=t1.calc(x), t2.calc(x), t3.calc(x)
-    print(a1, a2, a3)
-
-#тестовая база правил, отображающая нечеткие значениясами в себя
-R=[[0, 0], [1, 2], [2, 1]] #при наблюдении нечеткого значения i выдать нечеткое значение j
-
 def calcFuzzy(x, terms, R):
     aa=[t.calc(x) for t in terms]
     #применение правил
@@ -55,13 +39,31 @@ def calcFuzzy(x, terms, R):
     v=np.dot(aa, cc)
     return v
 
-xx=np.arange(0, 100, 1)
-terms=[t1, t2, t3]
-yy=[calcFuzzy(x, terms, R) for x in xx]
+def main():
+    t1 = Term("Small", 0, 100)
+    t1.draw(0, 100)
+    t2 = Term("Mid", 50, 100)
+    t2.draw(0, 100)
+    t3 = Term("Big", 100, 100)
+    t3.draw(0, 100)
+    plt.show()
 
-plt.plot(xx, yy)
-plt.show()
+    # цикл активации термов при линейном изменении входной координаты
+    for x in range(100):
+        a1, a2, a3 = t1.calc(x), t2.calc(x), t3.calc(x)
+        print(a1, a2, a3)
 
+    # тестовая база правил, отображающая нечеткие значения сами в себя
+    R = [[0, 0], [1, 2], [2, 1]]  # при наблюдении нечеткого значения i выдать нечеткое значение j
+
+    xx=np.arange(0, 100, 1)
+    terms=[t1, t2, t3]
+    yy=[calcFuzzy(x, terms, R) for x in xx]
+
+    plt.plot(xx, yy)
+    plt.show()
+
+main()
 # fig = plt.figure()
 # ax = fig.add_subplot(111)
 # coords=[]
