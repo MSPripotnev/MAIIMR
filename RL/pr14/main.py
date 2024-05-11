@@ -80,6 +80,7 @@ class Car:
         self.goal=None
         self.FOV=math.pi/4
         self.viewDist=150
+        self.traj=[]
 
     def getBB(self):
         bb = [[+self.L / 2, -self.W / 2], [+self.L / 2, +self.W / 2], [-self.L / 2, +self.W / 2],
@@ -103,12 +104,16 @@ class Car:
         pygame.draw.line(screen, (200, 200, 200), self.pos, self.pos + self.viewDist * v1, 1)
         pygame.draw.line(screen, (200, 200, 200), self.pos, self.pos + self.viewDist * v2, 1)
         pygame.draw.line(screen, (200, 200, 200), self.pos + self.viewDist * v1, self.pos + self.viewDist * v2, 1)
+        for i in range(1, len(self.traj)):
+            pygame.draw.line(screen, (0, 200, 0), self.traj[i-1], self.traj[i], 1)
 
     def sim(self, dt):
         if self.vSteer*self.angSteer<=0:
             self.angSteer += self.vSteer * dt
         else:
             self.angSteer+=self.vSteer*dt/(1+10*self.angSteer**2)
+        # self.vSteer*=0.5
+        # self.angSteer*=0.9
 
         if self.vBrake!=0:
             self.vLin*=math.pow(0.9, self.vBrake)
@@ -125,13 +130,17 @@ class Car:
             w = self.vLin / R
             self.ang+=w
 
+        if len(self.traj)==0 or dist(self.traj[-1], self.pos)>10:
+            self.traj.append([*self.pos])
+
+
     def control(self, dt):
         if self.goal==None: return
         d=dist(self.goal, self.pos)
         vec=np.subtract(self.goal, self.pos)
         dang=limAng(math.atan2(vec[1], vec[0]) - self.ang)
-        # self.vSteer = 0
-        # self.vLin = 0
+        self.vSteer = dang
+        self.vLin = min(50, d)
 
     def getFOV(self):
         v0 = np.array(rot([1, 0], self.ang))
@@ -157,6 +166,8 @@ def main():
     timer = pygame.time.Clock()
     fps = 20
     simTime=0
+    T=0
+    ind=-1
 
     car = Car([70, 70], 0.5)
     objs =[ Obj([150, 150]),
@@ -202,6 +213,14 @@ def main():
                     o.observations.append(a_)
                     o.observations=sorted(o.observations)
 
+
+        if T<=0:
+            ind=(ind+1)%len(objs)
+            T=5
+
+        car.goal=objs[ind].pos
+        car.control(dt)
+
         F=0
         for o in objs:
             F+= len(o.observations)
@@ -218,5 +237,6 @@ def main():
         pygame.display.flip()
         timer.tick(fps)
         simTime+=dt
+        T-=dt
 
 main()
