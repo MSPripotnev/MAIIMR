@@ -1,6 +1,7 @@
 import sys, pygame
 import numpy as np
 import math
+from parse import parse
 
 from manip import *
 
@@ -66,6 +67,21 @@ class Obj:
         if self.robot is not None:
             self.pos=self.robot.getEndpoint()
 
+def loadMemory(file_path):
+    am = {}
+    with open(file_path, "r") as f:
+        while True:
+            str = f.readline()
+            if not str: break
+            res = parse("{}_{}_{}", str)
+            distance_to_object = float(res[0])
+            # фильтрация
+            for i in range(round(distance_to_object)-5, round(distance_to_object)+5):
+                if float(i) in am:
+                    distance_to_object = round(float(i))
+                    break
+            am[distance_to_object] = [float(res[1]), float(res[2][:-1])]
+    return am
 
 def drawFloor(screen, sz, y):
     pygame.draw.line(screen, (0,0,0), [0, y], [sz[0], y], 2)
@@ -77,14 +93,15 @@ def main():
     robot=Robot([200,400], 70, 45)
     yFloor=400+robot.W/2+30
     obj=Obj([300,yFloor-8], 15)
+    asm = loadMemory("catch.log")
 
     while True:
         for ev in pygame.event.get():
             if ev.type==pygame.QUIT:
                 sys.exit(0)
             if ev.type == pygame.KEYDOWN:
-                if ev.key == pygame.K_r:
-                    print("Hi")
+                if ev.key == pygame.K_s:
+                    robot.vLin=0
                 if ev.key == pygame.K_d:
                     robot.vLin=10
                 if ev.key == pygame.K_a:
@@ -99,6 +116,23 @@ def main():
                     robot.manip.a2-=0.1
                 if ev.key == pygame.K_m:
                     robot.manip.coordDescent(obj.pos)
+                if ev.key == pygame.K_l:
+                    with open("catch.log", "a") as f:
+                        f.write(f"{dist(obj.pos, robot.pos)}_{robot.manip.a1}_{robot.manip.a2}\n")
+                    loadMemory("catch.log")
+                if ev.key == pygame.K_f:
+                    d = round(dist(obj.pos, robot.pos))
+                    print(d)
+                    if d not in asm:
+                        rs, rsi = [], []
+                        for i in asm.keys():
+                            rs.append(abs(i-d))
+                            rsi.append(i)
+                        d = rsi[rs.index(min(rs))]
+                    print(d)
+                    robot.manip.a1 = asm[d][0]
+                    robot.manip.a2 = asm[d][1]
+
 
         dt=1/fps
 
