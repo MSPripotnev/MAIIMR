@@ -110,8 +110,14 @@ def control(robot, asteroids, dt):
         q=d/250 + z/1250
         return q
 
-    dd=[dist(a.getPos(), robot.getPos()) for a in aa] #v1 dist
+    def Qm(r, a, aa):
+        M = sum(ai.getMass() for ai in aa)
+        x = 1/M * sum(ai.getMass() * ai.getPos()[0] for ai in aa)
+        y = 1/M * sum(ai.getMass() * ai.getPos()[1] for ai in aa)
+        return dist([x, y], a.getPos())
+    # dd=[dist(a.getPos(), robot.getPos()) for a in aa] #v1 dist
     # dd=[Q(a, robot) for a in aa] #v2 dist and speed
+    dd=[dist(a.getPos(), robot.getPos()+Qm(a, robot, aa)/15) for a in aa] #v1 dist
 
     if len(dd)==0:
         return 0
@@ -159,7 +165,7 @@ def main():
     robot=Robot(100, 400, 50)
 
     asteroids=[]
-    for i in range(10):
+    for i in range(20):
         ast=Asteroid(np.random.randint(50, 750), np.random.randint(50, 550),
                      np.random.randint(3, 7+1), np.random.randint(50, 100))
         ast.vx=np.random.randint(-5, 5+1)
