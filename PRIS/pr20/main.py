@@ -170,6 +170,7 @@ class Tank:
 #obstacles
 #tank obstacles
 #чет столкновений для потери здоровья танков
+#добавить прогноз
 
 
 def main():
